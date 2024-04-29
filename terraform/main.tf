@@ -1,19 +1,5 @@
-provider "aws" {
-  region = "us-east-1"  
-}
-
-locals {
-  name = "brainscale-app-tf"
-  aws_account = "211125651847"
-  aws_region  = "us-east-1"
-  aws_profile = "intern"
-  ecr_reg   = "${local.aws_account}.dkr.ecr.${local.aws_region}.amazonaws.com"
-  ecr_repo  = "brainscale-app-tf"
-  image_tag = "latest"
-}
-
 resource "null_resource" "build_push_dkr_img" {
-  
+
   provisioner "local-exec" {
     command = "aws --profile ${local.aws_profile} ecr get-login-password --region ${local.aws_region} | docker login --username AWS --password-stdin ${local.ecr_reg}"
   }
@@ -30,7 +16,7 @@ resource "null_resource" "build_push_dkr_img" {
     command = "docker push ${local.ecr_reg}/${local.ecr_repo}:${local.image_tag}"
   }
 
-  depends_on = [ aws_ecr_repository.app ]
+  depends_on = [aws_ecr_repository.app]
 }
 
 data "aws_ami" "ubuntu" {
@@ -46,13 +32,13 @@ data "aws_ami" "ubuntu" {
     values = ["hvm"]
   }
 
-  owners = ["099720109477"] 
+  owners = ["099720109477"]
 }
 
 resource "aws_ecr_repository" "app" {
-  name                 = "${local.ecr_repo}"
+  name                 = local.ecr_repo
   image_tag_mutability = "MUTABLE"
-  force_delete = true
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
@@ -60,11 +46,11 @@ resource "aws_ecr_repository" "app" {
 }
 
 resource "aws_lb" "app_lb" {
-  name               = "app-lb-tf"
+  name               = "${local.name}-lb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.loadbalancer_sg.id]
-  subnets            = [module.vpc.public_subnets[0], module.vpc.public_subnets[1]]
+  subnets            = [aws_subnet.public_subnet_1.id, aws_subnet.public_subnet_2.id]
 
   enable_deletion_protection = false
 }
@@ -75,12 +61,12 @@ resource "aws_key_pair" "app_key" {
 }
 
 resource "aws_lb_target_group" "lb-tg" {
-  depends_on = [ aws_lb.app_lb ]
+  depends_on  = [aws_lb.app_lb]
   name        = "lb-tg-tf"
   port        = 3000
   protocol    = "HTTP"
   target_type = "instance"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = aws_vpc.main.id
 
   health_check {
     path                = "/login"
@@ -105,7 +91,7 @@ resource "aws_lb_listener" "lb_listener" {
 }
 
 resource "aws_launch_template" "app_template" {
-  name = "brainscale-app-lt-tf"
+  name = "${local.name}-lt"
 
   cpu_options {
     core_count       = 1
@@ -114,7 +100,7 @@ resource "aws_launch_template" "app_template" {
 
   network_interfaces {
     associate_public_ip_address = true
-    security_groups = [aws_security_group.instance_sg.id, aws_security_group.loadbalancer_sg.id]
+    security_groups             = [aws_security_group.instance_sg.id, aws_security_group.loadbalancer_sg.id]
   }
 
   credit_specification {
@@ -123,16 +109,16 @@ resource "aws_launch_template" "app_template" {
 
   disable_api_stop        = true
   disable_api_termination = true
-  ebs_optimized = true
+  ebs_optimized           = true
 
   iam_instance_profile {
     name = aws_iam_instance_profile.ec2_instance_role.name
   }
 
-  image_id = data.aws_ami.ubuntu.id
+  image_id                             = data.aws_ami.ubuntu.id
   instance_initiated_shutdown_behavior = "terminate"
-  instance_type = "t3.micro"
-  key_name = aws_key_pair.app_key.key_name
+  instance_type                        = "t3.micro"
+  key_name                             = aws_key_pair.app_key.key_name
 
   metadata_options {
     http_endpoint               = "enabled"
@@ -151,27 +137,27 @@ resource "aws_launch_template" "app_template" {
 
   user_data = filebase64("./app-boot.sh")
 
-  depends_on = [ null_resource.build_push_dkr_img ]
+  depends_on = [null_resource.build_push_dkr_img]
 }
 
 resource "aws_autoscaling_group" "app_asg" {
-  name = "${local.name}-asg"
-  vpc_zone_identifier = [module.vpc.public_subnets[0], module.vpc.public_subnets[1]]
-  desired_capacity   = 1
-  max_size           = 2
-  min_size           = 1
+  name                = "${local.name}-asg"
+  vpc_zone_identifier = [aws_subnet.public_subnet_1.id, aws_subnet.public_subnet_2.id]
+  desired_capacity    = 1
+  max_size            = 2
+  min_size            = 1
 
   launch_template {
     id      = aws_launch_template.app_template.id
     version = "$Latest"
   }
 
-  depends_on = [ aws_lb_target_group.lb-tg ]
+  depends_on = [aws_lb_target_group.lb-tg]
 }
 
 resource "aws_autoscaling_attachment" "example" {
   autoscaling_group_name = aws_autoscaling_group.app_asg.id
   lb_target_group_arn    = aws_lb_target_group.lb-tg.arn
 
-  depends_on = [ aws_autoscaling_group.app_asg ]
+  depends_on = [aws_autoscaling_group.app_asg]
 } 

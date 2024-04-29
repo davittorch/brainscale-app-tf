@@ -29,11 +29,3 @@ resource "aws_iam_instance_profile" "ec2_instance_role" {
   name = "ec2_instance_role"
   role = aws_iam_role.ec2_instance_role.name
 }
-
-resource "aws_iam_service_linked_role" "loadbalancer_role" {
-  aws_service_name = "elasticloadbalancing.amazonaws.com"
-}
-
-resource "aws_iam_service_linked_role" "autoscaler_role" {
-  aws_service_name = "autoscaling.amazonaws.com"
-}
