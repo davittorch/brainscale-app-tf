@@ -1,5 +1,5 @@
 locals {
-  name        = "brainscale-app-tf"
+  name        = "brainscale-app"
   aws_account = "211125651847"
   aws_region  = "us-east-1"
   aws_profile = "intern"

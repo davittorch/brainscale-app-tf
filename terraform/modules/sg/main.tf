@@ -1,7 +1,7 @@
 resource "aws_security_group" "instance_sg" {
-  name        = "instance-sg-tf"
+  name        = "${var.name_prefix}-instance-sg"
   description = "EC2 instance ingress and egress rules"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = var.vpc_id
 
   ingress {
     from_port   = 3000
@@ -14,7 +14,7 @@ resource "aws_security_group" "instance_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["37.252.94.195/32"]
   }
 
   egress {
@@ -26,10 +26,9 @@ resource "aws_security_group" "instance_sg" {
 }
 
 resource "aws_security_group" "loadbalancer_sg" {
-  name        = "loadbalancer-sg-tf"
+  name        = "${var.name_prefix}-loadbalancer-sg"
   description = "Security group allowing HTTP traffic to LoadBalancer"
-  vpc_id      = aws_vpc.main.id
-
+  vpc_id      = var.vpc_id
 
   ingress {
     from_port   = 80

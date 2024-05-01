@@ -3,9 +3,9 @@ data "aws_availability_zones" "available" {
 }
 
 resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
+  cidr_block           = var.cidr_block
+  enable_dns_support   = var.enable_dns_support
+  enable_dns_hostnames = var.enable_dns_hostnames
 }
 
 resource "aws_internet_gateway" "igw" {
@@ -24,14 +24,14 @@ resource "aws_route" "internet_access" {
 
 resource "aws_subnet" "public_subnet_1" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.0.0/24"
+  cidr_block              = var.subnet_cidr_blocks[0]
   availability_zone       = data.aws_availability_zones.available.names[0]
   map_public_ip_on_launch = true
 }
 
 resource "aws_subnet" "public_subnet_2" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
+  cidr_block              = var.subnet_cidr_blocks[1]
   availability_zone       = data.aws_availability_zones.available.names[1]
   map_public_ip_on_launch = true
 }
